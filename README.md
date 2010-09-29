@@ -1,4 +1,4 @@
-Here we attempt to add support for the fts3 indexing engine.
+Here we attempt to add support for the fts3 indexing engine. (the embedded sqlite3 indexing engine)
 
 The ORM library provides a storage backend to persist ML values. This backend is integrated seamlessly with OCaml and currently uses SQLite (although other backends are easily possible). The user does not have to worry about writing any SQL queries manually.
 
