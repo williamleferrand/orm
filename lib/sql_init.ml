@@ -91,6 +91,11 @@ let create_tables ~mode ~env ~db tables =
 			sprintf "CREATE TABLE IF NOT EXISTS %s (__id__ INTEGER PRIMARY KEY AUTOINCREMENT, %s%s);" name extra (String.concat "," fields) in
 		exec_sql ~env ~db sql [] (db_must_step db);
 
+
+		let sql =
+		  sprintf "CREATE VIRTUAL TABLE %s_fts USING fts3 (%s%s);" name extra (String.concat "," fields) in
+		(try exec_sql ~env ~db sql [] (db_must_step db); with _ -> printf "@@@ Virtual table %s_fts seems to preexist\n" name); 
+
 		if is_enum t then begin
 			let sql = sprintf "CREATE UNIQUE INDEX IF NOT EXISTS idx_%s_enum ON %s (__id__,__next__);" name name in
 			exec_sql ~env ~db sql [] (db_must_step db)
