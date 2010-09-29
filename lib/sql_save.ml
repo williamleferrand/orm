@@ -40,9 +40,15 @@ let assert_exists ~env ~db table_name id =
 
 (* Return a fresh ID in the given table (and reserve it to update it later) *)
 let empty_row ~env ~db table_name : int64 =
+  printf "@@@ empty_row\n"; 
 	let insert = sprintf "INSERT INTO %s (__id__) VALUES (NULL);" table_name in
 	exec_sql ~env ~db insert [] (db_must_step db);
 	let id = last_insert_rowid db.db in
+	
+	(* Here we also insert a row into the fts table as well *)
+	let insert = sprintf "INSERT INTO %s_fts (docid) VALUES (%Ld);" table_name id in
+	exec_sql ~env ~db insert [] (db_must_step db);
+
 	debug (Printf.sprintf "%s:%d" db.name db.uuid) env `Sql "save" (Printf.sprintf "last_insert_rowid = %Ld" id);
 	(* assert_exists ~env ~db table_name id; *)
 	id
@@ -50,9 +56,10 @@ let empty_row ~env ~db table_name : int64 =
 
 (* Insert/update a specific row in a specific table *)
 let process_row ~env ~db table_name field_names field_values v =
-	let qmarks = List.map (fun _ -> "?") field_names in
-	let constraints =
-		List.map2 (fun f v -> if v = Data.NULL then sprintf "%s ISNULL" f else sprintf "%s=?" f) field_names field_values in
+  printf "@@@ process_row\n"; 
+  let qmarks = List.map (fun _ -> "?") field_names in
+  let constraints =
+    List.map2 (fun f v -> if v = Data.NULL then sprintf "%s ISNULL" f else sprintf "%s=?" f) field_names field_values in
     let insert = sprintf "INSERT INTO %s (%s) VALUES (%s);" table_name (String.concat "," field_names) (String.concat "," qmarks) in
     let select = sprintf "SELECT __id__ FROM %s WHERE %s;" table_name (String.concat " AND " constraints) in
     let fn stmt = step_map db stmt (fun stmt -> column stmt 0) in
@@ -119,19 +126,36 @@ let replace_row ~env ~db table_name id field_names field_values =
 	(* assert_exists ~env ~db table_name id; *)
 	let field_names = List.map (fun f -> sprintf "%s=?" f) field_names in
 	let replace = sprintf "UPDATE %s SET %s WHERE __id__=%Ld;" table_name (String.concat "," field_names) id in
-	exec_sql ~env ~db replace field_values (db_must_step db)
+	exec_sql ~env ~db replace field_values (db_must_step db) ; 
+	(* Now we also update the values for the fts equivalent *) 
+	let replace = sprintf "UPDATE %s_fts SET %s WHERE docid=%Ld;" table_name (String.concat "," field_names) id in
+	exec_sql ~env ~db replace field_values (db_must_step db) 
+	
+
+
+let display_struct = 
+  function
+    | Ext _ -> printf "Ext\n"
+    | Rec _ -> printf "Rec\n" 
+    | Enum _ -> printf "Enum\n" 
+    | Tuple _ -> printf "Tuple\n" 
+    | Dict _ -> printf "Dict\n" 
+    | Sum _ -> printf "Sum\n" 
+    | Value _ -> printf "Value\n" 
+    | _ -> printf "Unknown\n" 
 
 let rec update_value ~env ~db v =
-	match v with
-	| Ext ((n,i), s)
-	| Rec ((n,i), s) ->
-		let field_names = field_names_of_value ~id:false s in
-		let field_values = value_of_field ~env ~db n s in
-		replace_row ~env ~db n i field_names field_values;
-		update_value ~env ~db s
-	| Enum el        -> List.iter (update_value ~env ~db) el
-	| Tuple tl       -> List.iter (update_value ~env ~db) tl
-	| Dict tl        -> List.iter (fun (_,s) -> update_value ~env ~db s) tl
-	| Sum (r, tl)    -> List.iter (update_value ~env ~db) tl
-	| Value s        -> update_value ~env ~db s
-	| _              -> ()
+  printf "@@@ Updating value\n"; 
+  display_struct v ; 
+  match v with
+    | Ext ((n,i), s) | Rec ((n,i), s) ->
+      let field_names = field_names_of_value ~id:false s in
+      let field_values = value_of_field ~env ~db n s in
+      replace_row ~env ~db n i field_names field_values;
+      update_value ~env ~db s
+    | Enum el        -> List.iter (update_value ~env ~db) el
+    | Tuple tl       -> List.iter (update_value ~env ~db) tl
+    | Dict tl        -> List.iter (fun (_,s) -> update_value ~env ~db s) tl
+    | Sum (r, tl)    -> List.iter (update_value ~env ~db) tl
+    | Value s        -> update_value ~env ~db s
+    | _              -> ()
