@@ -248,48 +248,6 @@ let get_binding env tds (_loc, n, t) =
 	) >>
 
 
-
-(*
-	if Type.is_mutable $lid:P4_type.type_of n$ then (
-	  $Get.fun_of_name _loc tds n <:expr<
-	    fun ?custom: (__custom_fn__) ->
-	      fun (__db__ : Orm.Db.t $lid:n$ [<`RO|`RW])  ->
-		let __db__ = Orm.Db.to_state __db__ in
-		let __constraints__ = $Get.constraints_of_args _loc tds n$ in
-		let __custom_fn__ = match __custom_fn__ with [
-		  None	-> None
-		| Some fn -> Some (fun __v__ -> fn ($lid:P4_value.of_value n$ __v__))
-		] in
-		List.map
-		  (fun (__id__, __v__) ->
-		    let __n__ = $lid:P4_value.of_value n$ __v__ in
-		    do { Orm.Sql_cache.add __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __n__ __id__; __n__ }
-		  ) (Orm.Sql_get.get_values ~env:__env__ ~db:__db__ ~constraints:__constraints__ ?custom_fn:__custom_fn__ $lid:P4_type.type_of n$)
-		>>$
-	) else (
-	  $Get.fun_of_name _loc tds n <:expr<
-	    fun ?custom: (__custom_fn__) ->
-	      fun __db__ ->
-		let __db__ = Orm.Db.to_state __db__ in
-		let __constraints__ = $Get.constraints_of_args _loc tds n$ in
-		let __custom_fn__ = match __custom_fn__ with [
-		  None	-> None
-		| Some fn -> Some (fun __v__ -> fn ($lid:P4_value.of_value n$ __v__))
-		] in
-		List.map
-		  (fun (__id__, __v__) ->
-		    if Orm.Sql_cache.mem_weakid __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __id__ then (
-		      let __n__ = List.hd (Orm.Sql_cache.of_weakid __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __id__) in
-		      __n__
-		    ) else (
-		      let __n__ = $lid:P4_value.of_value n$ __v__ in
-			    do { Orm.Sql_cache.replace __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __n__ __id__; __n__ } )
-		  ) (Orm.Sql_get.get_values ~env:__env__ ~db:__db__ ~constraints:__constraints__ ?custom_fn:__custom_fn__ $lid:P4_type.type_of n$)
-		>>$
-	) >>
-
-*)
-
 (** mmmh, very basic search at the moment *)
 (** Might bypass the cache *)
 	  
