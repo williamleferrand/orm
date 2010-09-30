@@ -27,6 +27,9 @@ let init n     = n ^ "_init"
 let initRO n   = n ^ "_init_read_only"
 let save n     = n ^ "_save"
 let get n      = n ^ "_get"
+
+let search n   = n ^ "_search"
+
 let delete n   = n ^ "_delete"
 let id n       = n ^ "_id"
 let cache n    = n ^ "_cache"
@@ -244,6 +247,64 @@ let get_binding env tds (_loc, n, t) =
 		>>$
 	) >>
 
+
+
+(*
+	if Type.is_mutable $lid:P4_type.type_of n$ then (
+	  $Get.fun_of_name _loc tds n <:expr<
+	    fun ?custom: (__custom_fn__) ->
+	      fun (__db__ : Orm.Db.t $lid:n$ [<`RO|`RW])  ->
+		let __db__ = Orm.Db.to_state __db__ in
+		let __constraints__ = $Get.constraints_of_args _loc tds n$ in
+		let __custom_fn__ = match __custom_fn__ with [
+		  None	-> None
+		| Some fn -> Some (fun __v__ -> fn ($lid:P4_value.of_value n$ __v__))
+		] in
+		List.map
+		  (fun (__id__, __v__) ->
+		    let __n__ = $lid:P4_value.of_value n$ __v__ in
+		    do { Orm.Sql_cache.add __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __n__ __id__; __n__ }
+		  ) (Orm.Sql_get.get_values ~env:__env__ ~db:__db__ ~constraints:__constraints__ ?custom_fn:__custom_fn__ $lid:P4_type.type_of n$)
+		>>$
+	) else (
+	  $Get.fun_of_name _loc tds n <:expr<
+	    fun ?custom: (__custom_fn__) ->
+	      fun __db__ ->
+		let __db__ = Orm.Db.to_state __db__ in
+		let __constraints__ = $Get.constraints_of_args _loc tds n$ in
+		let __custom_fn__ = match __custom_fn__ with [
+		  None	-> None
+		| Some fn -> Some (fun __v__ -> fn ($lid:P4_value.of_value n$ __v__))
+		] in
+		List.map
+		  (fun (__id__, __v__) ->
+		    if Orm.Sql_cache.mem_weakid __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __id__ then (
+		      let __n__ = List.hd (Orm.Sql_cache.of_weakid __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __id__) in
+		      __n__
+		    ) else (
+		      let __n__ = $lid:P4_value.of_value n$ __v__ in
+			    do { Orm.Sql_cache.replace __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __n__ __id__; __n__ } )
+		  ) (Orm.Sql_get.get_values ~env:__env__ ~db:__db__ ~constraints:__constraints__ ?custom_fn:__custom_fn__ $lid:P4_type.type_of n$)
+		>>$
+	) >>
+
+*)
+
+(** mmmh, very basic search at the moment *)
+(** Might bypass the cache *)
+	  
+let search_binding env tds (_loc, n, t) =
+  <:binding< $lid:search n$ = 
+           fun ~db: (__db__: Orm.Db.t $lid:n$ [=`RW]) -> 
+	     fun field -> 
+	       fun query ->
+		 let __db__ = Orm.Db.to_state __db__ in
+		 List.map
+		   (fun (__id__, __v__) -> $lid:P4_value.of_value n$ __v__)
+		   (Orm.Sql_search.search_values ~env:__env__ ~db:__db__  field query $lid:P4_type.type_of n$)    
+        >>
+
+	  
 let delete_binding env tds (_loc, n, t) =
 	<:binding< $lid:delete n$ =
 	fun ?(recursive=True) -> fun ~db: (__db__: Orm.Db.t $lid:n$ [=`RW]) ->
@@ -282,7 +343,11 @@ let gen env tds =
 	let ts = list_of_ctyp_decl tds in
 	let init_bindings = List.map (init_binding env tds) ts in
 	let initRO_bindings = List.map (initRO_binding env tds) ts in
+
 	let save_bindings = List.map (save_binding env tds) ts in
+
+	let search_bindings = List.map (search_binding env tds) ts in
+
 	let get_bindings = List.map (get_binding env tds) ts in
 	let get_by_id_bindings = List.map (get_by_id_binding env tds) ts in
 	let delete_bindings = List.map (delete_binding env tds) ts in
@@ -304,6 +369,9 @@ let gen env tds =
 		value $biAnd_of_list initRO_bindings$;
 		value rec $biAnd_of_list save_bindings$;
 		value rec $biAnd_of_list get_bindings$;
+
+		value rec $biAnd_of_list search_bindings$;
+
 		value rec $biAnd_of_list get_by_id_bindings$;
 		value $biAnd_of_list delete_bindings$;
 		value $biAnd_of_list id_bindings$;
