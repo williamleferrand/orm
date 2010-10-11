@@ -37,14 +37,15 @@ let process ~env ~db name field query fn =
 let search_values ~env ~db ?id field query t =
   let value_of_row name s row =
     let id = match row.(0) with Data.INT i -> i | _ -> failwith "TODO:4; have you removed the docid somewhere?" in
-    let r, _ = Sql_get.parse_row ~env ~db ~skip:false ~name s row 1 in
-    if List.mem (name, id) (V.free_vars r) then
-      id, V.Rec ((name,id), r)
-    else
-      id, V.Ext ((name,id), r) in
-
+    
+    match Sql_get.get_values ~env ~db ~id:id t with 
+       v::_ -> v 
+      | _ -> failwith "database is desynchronized" in
+      
+ 
   let value_of_stmt name s stmt =
     value_of_row name s (row_data stmt) in
+
   
   match t with
     | T.Rec (n, s) | T.Ext (n, s) ->
