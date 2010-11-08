@@ -23,16 +23,26 @@ open Value
 
 exception Sql_process_error of Value.t * string
 
+let mesure f = 
+  let t1 = Unix.times () in 
+  let v = f () in 
+  let t2 = Unix.times () in 
+  let d = t2.Unix.tms_utime -. t1.Unix.tms_utime in
+  printf "Request time: %f\n" d ; flush stdout ; 
+  v 
+
 let process_error t s =
   Printf.printf "ERROR(%s): %s\n%!" s (to_string t);
   raise (Sql_process_error (t,s))
 
 let exec_sql ~env ~db sql binds fn =
-	exec_sql ~tag:"save" ~env ~db sql binds fn
+ (* printf "SQL request : %s \n" sql ; flush stdout ;  *)
+  printf "Request: %s\n" sql ; 
+  mesure (fun () -> exec_sql ~tag:"save" ~env ~db sql binds fn)
 
 let assert_exists ~env ~db table_name id =
-	let select = sprintf "SELECT * FROM %s WHERE __id__=?" table_name in
-	exec_sql ~env ~db select [Data.INT id]
+  let select = sprintf "SELECT * FROM %s WHERE __id__=?" table_name in
+  exec_sql ~env ~db select [Data.INT id]
 		(fun stmt ->
 			 if not (List.length (step_map db stmt (fun stmt -> column stmt 0)) = 1) then
 				 failwith (sprintf "%s:%Ld doesn't exist" table_name id)
@@ -70,13 +80,14 @@ let process_row ~env ~db table_name field_names field_values v =
 
 (* Insert a collection of rows in a specific table *)
 let process_enum_rows ~env ~db table_name field_names field_values_enum v =
-	let join =
+(*	let join =
 		sprintf "%s as __t0__" table_name ::
 			list_mapi (fun i _ -> sprintf "%s AS __t%i__ ON __t%i__.__next__=__t%i__.__id__" table_name (i+1) i (i+1)) (List.tl field_values_enum) in
 	let constraints =
 		List.flatten (list_mapi (fun i _ -> List.map (fun f -> sprintf "__t%i__.%s=?" i f) field_names) field_values_enum) in
 	let binds =
 		List.flatten field_values_enum in
+	(* This select becomes huge and crashes the PREPARE operation ;( *)
 	let select = sprintf "SELECT __t0__.__id__ FROM %s WHERE __t%i__.__next__ ISNULL AND %s;"
 		(String.concat " JOIN " join)
 		(List.length field_values_enum - 1)
@@ -84,7 +95,7 @@ let process_enum_rows ~env ~db table_name field_names field_values_enum v =
 	let fn stmt = step_map db stmt (fun stmt -> column stmt 0) in
 	match exec_sql ~env ~db select binds fn with
 		| [Data.INT i ] -> i
-		| []            ->
+		| []            -> *)
 			let rec aux ?last i = function
 				| []                -> (match last with None -> process_error v "Empy enum" | Some id -> id)
 				| field_values :: t ->
@@ -96,7 +107,7 @@ let process_enum_rows ~env ~db table_name field_names field_values_enum v =
 						v in
 					aux ~last:id (i+1) t in
 			aux 0 (List.rev field_values_enum)
-		| ds           -> process_error v (sprintf "Found {%s}" (String.concat "," (List.map string_of_data ds)))
+	(*	| ds           -> process_error v (sprintf "Found {%s}" (String.concat "," (List.map string_of_data ds))) *)
 
 let rec value_of_field ~env ~db name v =
 	match v with
@@ -122,14 +133,16 @@ let rec value_of_field ~env ~db name v =
 	| Rec ((_,i),_) 
 	| Ext ((_,i),_) -> [ Data.INT i ]
 
-let replace_row ~env ~db table_name id field_names field_values =
+let replace_row ~index ~env ~db table_name id field_names field_values =
 	(* assert_exists ~env ~db table_name id; *)
 	let field_names = List.map (fun f -> sprintf "%s=?" f) field_names in
 	let replace = sprintf "UPDATE %s SET %s WHERE __id__=%Ld;" table_name (String.concat "," field_names) id in
 	exec_sql ~env ~db replace field_values (db_must_step db) ; 
 	(* Now we also update the values for the fts equivalent *) 
-	let replace = sprintf "UPDATE %s_fts SET %s WHERE docid=%Ld;" table_name (String.concat "," field_names) id in
-	exec_sql ~env ~db replace field_values (db_must_step db) 
+	if index then 
+	  (
+	    let replace = sprintf "UPDATE %s_fts SET %s WHERE docid=%Ld;" table_name (String.concat "," field_names) id in
+	    exec_sql ~env ~db replace field_values (db_must_step db))
 	
 
 
@@ -144,17 +157,17 @@ let display_struct =
     | Value _ -> printf "Value\n" 
     | _ -> printf "Unknown\n" 
 
-let rec update_value ~env ~db v =
+let rec update_value ~env ~index ~db v =
   
   match v with
     | Ext ((n,i), s) | Rec ((n,i), s) ->
       let field_names = field_names_of_value ~id:false s in
       let field_values = value_of_field ~env ~db n s in
-      replace_row ~env ~db n i field_names field_values;
-      update_value ~env ~db s
-    | Enum el        -> List.iter (update_value ~env ~db) el
-    | Tuple tl       -> List.iter (update_value ~env ~db) tl
-    | Dict tl        -> List.iter (fun (_,s) -> update_value ~env ~db s) tl
-    | Sum (r, tl)    -> List.iter (update_value ~env ~db) tl
-    | Value s        -> update_value ~env ~db s
+      replace_row ~index ~env ~db n i field_names field_values;
+      update_value ~index ~env ~db s
+    | Enum el        -> List.iter (update_value ~index ~env ~db) el
+    | Tuple tl       -> List.iter (update_value ~index ~env ~db) tl
+    | Dict tl        -> List.iter (fun (_,s) -> update_value ~index ~env ~db s) tl
+    | Sum (r, tl)    -> List.iter (update_value ~index ~env ~db) tl
+    | Value s        -> update_value ~index ~env ~db s
     | _              -> ()
