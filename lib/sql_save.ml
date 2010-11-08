@@ -37,8 +37,7 @@ let process_error t s =
 
 let exec_sql ~env ~db sql binds fn =
  (* printf "SQL request : %s \n" sql ; flush stdout ;  *)
-  printf "Request: %s\n" sql ; 
-  mesure (fun () -> exec_sql ~tag:"save" ~env ~db sql binds fn)
+  exec_sql ~tag:"save" ~env ~db sql binds fn
 
 let assert_exists ~env ~db table_name id =
   let select = sprintf "SELECT * FROM %s WHERE __id__=?" table_name in
