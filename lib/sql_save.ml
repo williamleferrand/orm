@@ -119,6 +119,7 @@ let _ =
 
 (* Insert a collection of rows in a specific table *)
 let process_enum_rows ~env ~db table_name field_names field_values_enum v =
+
   let get_chunk chunk next_chunks =
     let join =
       sprintf "%s as __t0__" table_name ::
@@ -130,8 +131,7 @@ let process_enum_rows ~env ~db table_name field_names field_values_enum v =
 	| l  -> [sprintf "(%s)" (String.concat " OR " (List.map (sprintf "__t%i__.__next__ = %Ld" (List.length chunk - 1)) l))]) in
     let binds =
       List.flatten chunk in
-    let select = sprintf "SELECT __t0__.__id__ FROM %s WHERE %s;"
-      
+    let select = sprintf "SELECT __t0__.__id__ FROM %s WHERE %s;"      
       (String.concat " JOIN " join)
       (String.concat " AND " constraints) in
     let fn stmt = step_map db stmt (fun stmt -> column stmt 0) in
@@ -163,7 +163,7 @@ let process_enum_rows ~env ~db table_name field_names field_values_enum v =
   
   match get_by_chunks () with
     | [i] -> i
-    | []  ->
+    | []  -> 
       let rec save i = function
 	| []                -> first ()
 	  
@@ -177,8 +177,8 @@ let process_enum_rows ~env ~db table_name field_names field_values_enum v =
           ids.(i) <- id;
 	  save (i+1) t in
       save 0 (List.rev field_values_enum)
-    | ds           -> process_error v (sprintf "Found {%s}" (String.concat "," (List.map Int64.to_string ds)))
-      
+     | ds           -> process_error v (sprintf "Found {%s}" (String.concat "," (List.map Int64.to_string ds)))
+    
       
 let rec value_of_field ~env ~db name v =
 	match v with
