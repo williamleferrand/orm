@@ -51,7 +51,7 @@ let debug db (env:env) ty n e =
 
 let default_busyfn (db:Sqlite3.db) =
     print_endline "WARNING: busy";
-    Unix.sleep 1
+    Unix.sleep 1 (* Pas très très Lwt compliant ça ! *)
 
 let new_state name = {
 	uuid = Random.int 100;

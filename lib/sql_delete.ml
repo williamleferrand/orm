@@ -77,7 +77,11 @@ let delete_value ~env ~db ~recursive v =
 
 	let process (table, id) =
 		let sql = sprintf "DELETE FROM %s WHERE __id__=?" table in
-		exec_sql ~env ~db sql [ Data.INT id ] (db_must_step db) in
+		exec_sql ~env ~db sql [ Data.INT id ] (db_must_step db) ; 
+		let sql = sprintf "DELETE FROM %s_fts WHERE docid=?" table in
+		exec_sql ~env ~db sql [ Data.INT id ] (db_must_step db) 
+				  
+	in
 
 	let rec aux ~recurse ~deleted = function
 		| Null | Unit | Int _ | Bool _ | Float _ | String _ | Arrow _ | Var _ -> ()
