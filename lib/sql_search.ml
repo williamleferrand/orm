@@ -37,11 +37,13 @@ let process ~env ~db name field query fn =
 let search_values ~env ~db ?id field query t =
   let value_of_row name s row =
     let id = match row.(0) with Data.INT i -> i | _ -> failwith "TODO:4; have you removed the docid somewhere?" in
-    
+    id
+      
+(*
     match Sql_get.get_values ~env ~db ~id:id t with 
 	v::_ -> v 
       | _ -> failwith (Printf.sprintf "database is desynchronized (%Ld)" id) in
-      
+*) in    
  
   let value_of_stmt name s stmt =
     value_of_row name s (row_data stmt) in

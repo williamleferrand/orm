@@ -259,14 +259,17 @@ let search_binding env tds (_loc, n, t) =
 	     fun field -> 
 	       fun query ->
 		 let __db__ = Orm.Db.to_state __db__ in
-		 List.map
+		(*  List.map
 		   (fun (__id__, __v__) -> 
-		     if Orm.Sql_cache.mem_weakid __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __id__ then (
+(*		     if Orm.Sql_cache.mem_weakid __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __id__ then (
 		       let __n__ = List.hd (Orm.Sql_cache.of_weakid __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __id__) in
 		       __n__
 		     ) else (
 		       let __n__ = $lid:P4_value.of_value n$ __v__ in
-			     do { Orm.Sql_cache.replace __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __n__ __id__; __n__ } ))
+			     do { Orm.Sql_cache.replace __env__ $lid:cache n$ __db__.Orm.Sql_backend.name __n__ __id__; __n__ } ) *)
+		     __id__
+
+) *)
 		       
 		       
 		       (Orm.Sql_search.search_values ~env:__env__ ~db:__db__  field query $lid:P4_type.type_of n$)    
